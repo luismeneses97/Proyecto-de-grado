@@ -1,7 +1,8 @@
-unsigned long intervalo=2000;
-unsigned long intervalo1=10000;
+unsigned long intervalo1=5000;
 unsigned long tiempoanterior=0;
 unsigned long tiempoanterior1=0;
+unsigned long tiempoOne=0;
+unsigned long tiempoTwo=0;
 long dt=0;
 long t0=0;
 volatile int Pulsos=0; //variable para la cantidad de pulsos recibidos
@@ -44,14 +45,14 @@ SHT1x sht1x(dataPin, clockPin);
 //RELES
 char var;
 String var1;
-int led1=2;
-int led2=3;
-int led3=4;
+int led1=8;
+int led2=9;
+int led3=10;
 
 
 
 void setup(){
-Serial.begin(115200);
+Serial.begin(9600);
 pinMode(PinSensor, INPUT); 
 attachInterrupt(digitalPinToInterrupt(PinSensor),ContarPulsos,RISING);//(Interrupción 0(Pin2),función,Flanco de subida)
 sensor.begin(); //para sensor de temperatura
@@ -61,24 +62,19 @@ t0=millis();
 pinMode(led1,OUTPUT);
 pinMode(led2,OUTPUT);
 pinMode(led3,OUTPUT);
-
+tiempoOne=millis();
 }
 
 void loop(){
 
+
+
 //TEMPERATURA
   sensor.requestTemperatures();   
   float temp= sensor.getTempCByIndex(0); 
-//HUMEDAD ATMOSFERICA
-  float temp_c;
-  float temp_f;
-  float humidity;
-
-  humidity = sht1x.readHumidity();
-
-  
- 
-
+//HUMEDAD ATMOSFERICA 
+  // float humidity;
+  //humidity = sht1x.readHumidity();
 
 
 //HUMEDAD
@@ -107,51 +103,44 @@ unsigned long tiempoactual1=millis();
 if((unsigned long)(tiempoactual1-tiempoanterior1)>=intervalo1){
  
  //Serial.print(" Litros:");
- Serial.print(volumen); 
- Serial.print(","); 
- Serial.print(caudal_L_m); 
- Serial.print(","); 
+ //Serial.print(volumen); 
+ //Serial.print(","); 
+ //Serial.print(caudal_L_m); 
+ //Serial.print(","); 
  //Serial.print(" Frecuencia:");Serial.print(Pulsos);
  //Serial.println(" ");
  tiempoanterior1=millis();
- Serial.println((String)temp+","+(String)humidity+","+(String)val0+","+(String)val1+","+(String)val2+","+(String)val3+","+(String)val4+","+(String)val5+","+(String)val6+","+(String)val7+","+(String)val8);
+ Serial.println((String)volumen+","+(String)caudal_L_m+","+(String)temp+",56,"+(String)val0+","+(String)val1+","+(String)val2+","+(String)val3+","+(String)val4+","+(String)val5+","+(String)val6+","+(String)val7+","+(String)val8);
+ tiempoTwo=millis();
+// Serial.println(tiempoTwo-tiempoOne);
+ tiempoOne=millis(); 
+
  //Volumen, Caudal, Temperatura en centigrados, Humedad de aire, Humedades del suelo 
 }
 
- 
   
-  //RELES
-  if(Serial.available())
+  
+//RELES
+if(Serial.available())
   {
     var = Serial.read();
     var1+=var;
     if(var=='\n')
     {
-      if(var1[0]=='a'){
-        digitalWrite(led1,LOW);
-      }
-      else{
-        digitalWrite(led1,HIGH);
-      }
+      if(var1[0]=='a')
+      {digitalWrite(led1,LOW);}
+      else{digitalWrite(led1,HIGH);}
 
-      if(var1[1]=='b'){
-        digitalWrite(led2,LOW);
-      }
-      else{
-        digitalWrite(led2,HIGH);
-      }
+      if(var1[1]=='b')
+      {digitalWrite(led2,LOW);}
+      else {digitalWrite(led2,HIGH);}
 
-      if(var1[2]=='c'){
-        digitalWrite(led3,LOW);
-      }
-      else{
-        digitalWrite(led3,HIGH);
-      }
+      if(var1[2]=='c')
+      {digitalWrite(led3,LOW);}
+      else {digitalWrite(led3,HIGH);}
 
+     
       var1="";
     }
   }
-
-
-
 }
