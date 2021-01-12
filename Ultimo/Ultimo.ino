@@ -28,19 +28,20 @@ int ObtenerFrecuecia()
   frecuencia=Pulsos; //Hz(pulsos por segundo)
   return frecuencia;
 }
+
 //TEMPERATURA
 #include <OneWire.h>                
 #include <DallasTemperature.h>
  
-OneWire ourWire(2); //Pin digital para conectar la senal del sensor.               
+OneWire ourWire(36); //Pin digital para conectar la senal del sensor.               
 DallasTemperature sensor(&ourWire); 
 
 //HUMEDAD
 #include <SHT1x.h>
 // Specify data and clock connections and instantiate SHT1x object
-#define dataPin  10
-#define clockPin 11
-SHT1x sht1x(dataPin, clockPin);
+#define dataPin  46
+#define clockPin 47
+SHT1x sht10(dataPin, clockPin);
 
 //RELES
 char var;
@@ -52,7 +53,7 @@ int led3=10;
 
 
 void setup(){
-Serial.begin(9600);
+Serial.begin(115200);
 pinMode(PinSensor, INPUT); 
 attachInterrupt(digitalPinToInterrupt(PinSensor),ContarPulsos,RISING);//(Interrupción 0(Pin2),función,Flanco de subida)
 sensor.begin(); //para sensor de temperatura
@@ -65,60 +66,87 @@ pinMode(led3,OUTPUT);
 tiempoOne=millis();
 }
 
+void duracion_de_ciclo(){
+   tiempoTwo=millis();
+   Serial.println(tiempoTwo-tiempoOne);
+   tiempoOne=millis();
+}
 void loop(){
 
 
 
 //TEMPERATURA
+//tiempo de respuesta:534
   sensor.requestTemperatures();   
   float temp= sensor.getTempCByIndex(0); 
-//HUMEDAD ATMOSFERICA 
-  // float humidity;
-  //humidity = sht1x.readHumidity();
+  //Serial.println((String)temp);
+//  duracion_de_ciclo();
 
+  
+//HUMEDAD ATMOSFERICA 
+/*tiempo de sht1x.readTemperatureC: 411
+  tiempo de sht1x.readTemperatureF: 411
+  tiempo de sht1x.readHumidity(): 642
+*/
+/*  float temp_c;
+  float humedad_atmosferica;
+  humedad_atmosferica = sht10.readHumidity();
+  temp_c = sht10.readTemperatureC();
+*/  
 
 //HUMEDAD
-  float val0 = (analogRead(A1)*(-100.0/1023.0))+100.0;
-  float val1 = (analogRead(A2)*(-100.0/1023.0))+100.0;
-  float val2 = (analogRead(A3)*(-100.0/1023.0))+100.0;
-  float val3 = (analogRead(A4)*(-100.0/1023.0))+100.0;
-  float val4 = (analogRead(A5)*(-100.0/1023.0))+100.0;
-  float val5 = (analogRead(A6)*(-100.0/1023.0))+100.0;
-  float val6 = (analogRead(A7)*(-100.0/1023.0))+100.0;
-  float val7 = (analogRead(A8)*(-100.0/1023.0))+100.0;
-  float val8 = (analogRead(A9)*(-100.0/1023.0))+100.0;
-  
+  float sensor_humedad_0 = (analogRead(A1)*(-100.0/1023.0))+100.0;
+  float sensor_humedad_1 = (analogRead(A2)*(-100.0/1023.0))+100.0;
+  float sensor_humedad_2 = (analogRead(A3)*(-100.0/1023.0))+100.0;
+  float sensor_humedad_3 = (analogRead(A4)*(-100.0/1023.0))+100.0;
+  float sensor_humedad_4 = (analogRead(A5)*(-100.0/1023.0))+100.0;
+  float sensor_humedad_5 = (analogRead(A6)*(-100.0/1023.0))+100.0;
+  float sensor_humedad_6 = (analogRead(A7)*(-100.0/1023.0))+100.0;
+  float sensor_humedad_7 = (analogRead(A8)*(-100.0/1023.0))+100.0;
+  float sensor_humedad_8 = (analogRead(A9)*(-100.0/1023.0))+100.0;
+  float humedad_era_1 = (sensor_humedad_0+sensor_humedad_1+sensor_humedad_2)/3 ;
+  float humedad_era_2 = (sensor_humedad_3+sensor_humedad_4+sensor_humedad_5)/3 ;
+  float humedad_era_3 = (sensor_humedad_6+sensor_humedad_7+sensor_humedad_8)/3 ;
+ // Serial.println((String)temp_c+","+(String)humidity+","+(String)val0+","+(String)val1+","+(String)val2+","+(String)val3+","+(String)val4+","+(String)val5+","+(String)val6+","+(String)val7+","+(String)val8);
+  //duracion_de_ciclo();
+  //1057
 
+  //****CONTROL******
+ 
+//SENSOR DE CAUDAL
 
- //SENSOR DE CAUDAL
+  float frecuencia=ObtenerFrecuecia(); //obtenemos la frecuencia de los pulsos en Hz
+  float caudal_L_m=frecuencia/factor_conversion; //calculamos el caudal en L/m
+  dt=millis()-t0; //calculamos la variación de tiempo
+  t0=millis();
+  volumen=volumen+(caudal_L_m/60)*(dt/1000); // volumen(L)=caudal(L/s)*tiempo(s)
 
-float frecuencia=ObtenerFrecuecia(); //obtenemos la frecuencia de los pulsos en Hz
-float caudal_L_m=frecuencia/factor_conversion; //calculamos el caudal en L/m
-dt=millis()-t0; //calculamos la variación de tiempo
-t0=millis();
-volumen=volumen+(caudal_L_m/60)*(dt/1000); // volumen(L)=caudal(L/s)*tiempo(s)
 
 //SE IMPRIMEN TODAS LAS FUNCIONES  
-unsigned long tiempoactual1=millis();
-if((unsigned long)(tiempoactual1-tiempoanterior1)>=intervalo1){
+  unsigned long tiempoactual1=millis();
+  if((unsigned long)(tiempoactual1-tiempoanterior1)>=intervalo1){
  
- //Serial.print(" Litros:");
- //Serial.print(volumen); 
- //Serial.print(","); 
- //Serial.print(caudal_L_m); 
- //Serial.print(","); 
- //Serial.print(" Frecuencia:");Serial.print(Pulsos);
- //Serial.println(" ");
- tiempoanterior1=millis();
- Serial.println((String)volumen+","+(String)caudal_L_m+","+(String)temp+",56,"+(String)val0+","+(String)val1+","+(String)val2+","+(String)val3+","+(String)val4+","+(String)val5+","+(String)val6+","+(String)val7+","+(String)val8);
- tiempoTwo=millis();
-// Serial.println(tiempoTwo-tiempoOne);
- tiempoOne=millis(); 
+   tiempoanterior1=millis();
+   Serial.print((String)temp+";");
+   Serial.print((String)volumen+";");
+   Serial.print((String)caudal_L_m+",");
+  // Serial.print((String)temp_c+",");
+   //Serial.print((String)humidity+",");
+   Serial.print((String)sensor_humedad_0+",");
+   Serial.print((String)sensor_humedad_1+",");
+   Serial.print((String)sensor_humedad_2+",");
+   Serial.print((String)sensor_humedad_3+",");
+   Serial.print((String)sensor_humedad_4+",");
+   Serial.print((String)sensor_humedad_5+",");
+   Serial.print((String)sensor_humedad_6+",");
+   Serial.print((String)sensor_humedad_7+",");
+   Serial.println((String)sensor_humedad_8);
+   
+   duracion_de_ciclo(); 
 
- //Volumen, Caudal, Temperatura en centigrados, Humedad de aire, Humedades del suelo 
-}
+  }
 
-  
+
   
 //RELES
 if(Serial.available())
