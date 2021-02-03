@@ -1,25 +1,24 @@
-unsigned long intervalo1=5000;
-unsigned long tiempoanterior=0;
+//SENSOR DE CAUDAL
+unsigned long intervalo1=20000;
 unsigned long tiempoanterior1=0;
-unsigned long tiempoOne=0;
-unsigned long tiempoTwo=0;
+
+unsigned long intervaloOne=10000;
+unsigned long tiempoanteriorOne=0;
+
 long dt=0;
 long t0=0;
 volatile int Pulsos=0; //variable para la cantidad de pulsos recibidos
-
 int PinSensor = 3;    //Sensor conectado en el pin 2
 float factor_conversion=7.288; //para convertir de frecuencia a caudal
 float volumen=0;
 
-//---Función que se ejecuta en interrupción---------------
-void ContarPulsos ()  
-{ 
-  Pulsos++;  //incrementamos la variable de pulsos 
+//FUNCION QUE USA LA FUNCION INTERRUPCION() PARA CONTAR LOS PULSOS
+void ContarPulsos (){ 
+  Pulsos++;  
 } 
 
-//---Función para obtener frecuencia de los pulsos--------
-int ObtenerFrecuecia() 
-{
+// FUNCION PARA OBTENER LA FRECUENCIA DE LOS PULSOS
+int obtener_frecuecia(){
   int frecuencia;
   Pulsos = 0;   //Ponemos a 0 el número de pulsos
   interrupts();    //Habilitamos las interrupciones
@@ -29,146 +28,233 @@ int ObtenerFrecuecia()
   return frecuencia;
 }
 
-//TEMPERATURA
+// SENSOR TEMPERATURA DS18B20
 #include <OneWire.h>                
 #include <DallasTemperature.h>
- 
-OneWire ourWire(36); //Pin digital para conectar la senal del sensor.               
+OneWire ourWire(40); //Pin digital para conectar la senal del sensor.               
 DallasTemperature sensor(&ourWire); 
 
-//HUMEDAD
+// SENSOR DE TEMPERATURA Y HUMEDAD ATMOSFERICA SHT10
 #include <SHT1x.h>
 // Specify data and clock connections and instantiate SHT1x object
 #define dataPin  46
 #define clockPin 47
 SHT1x sht10(dataPin, clockPin);
 
-//RELES
-char var;
-String var1;
-int led1=8;
-int led2=9;
-int led3=10;
+// PINES DE RELES
+int electrovalvula_1=8;
+int electrovalvula_2=9;
+int electrovalvula_3=10;
 
+// VARIABLES DE LAS ELECTROVALVULAS
+boolean estado_electrovalvula_1 = false;
+boolean estado_electrovalvula_2 = false;
+boolean estado_electrovalvula_3 = false;
 
+boolean ascendente_electrovalvula_1 = true;
+boolean ascendente_electrovalvula_2 = true;
+boolean ascendente_electrovalvula_3 = true;
 
-void setup(){
-Serial.begin(115200);
-pinMode(PinSensor, INPUT); 
-attachInterrupt(digitalPinToInterrupt(PinSensor),ContarPulsos,RISING);//(Interrupción 0(Pin2),función,Flanco de subida)
-sensor.begin(); //para sensor de temperatura
-t0=millis();
-//reles
+// VARIABLES DE LOS SENSORES DE HUMEDAD YL-69
+float humedad_era_1_antes = 0;
+float humedad_era_2_antes = 0;
+float humedad_era_3_antes = 0;
+boolean ascendente = false;
 
-pinMode(led1,OUTPUT);
-pinMode(led2,OUTPUT);
-pinMode(led3,OUTPUT);
-tiempoOne=millis();
-}
-
+// FUNCION QUE CALCULA LA DURACION DEL CICLO
+unsigned long tiempoOne=0;
+unsigned long tiempoTwo=0;
 void duracion_de_ciclo(){
-   tiempoTwo=millis();
-   Serial.println(tiempoTwo-tiempoOne);
-   tiempoOne=millis();
+  tiempoTwo=millis();
+  Serial.println(tiempoTwo-tiempoOne);
+  tiempoOne=millis();
 }
+
+// FUNCION QUE DETERMINA SI LA ELECTROVALVULA SE ENCIENDE
+boolean estado_electrovalvula(float humedad_era, boolean flanco_ascendente, float rango_de_humedad_mayor, float rango_de_humedad_menor){
+  boolean electrovalvula;
+  if(flanco_ascendente == true && humedad_era <= rango_de_humedad_mayor){
+    electrovalvula = true;
+  }
+  else if(flanco_ascendente == true && humedad_era > rango_de_humedad_mayor){
+    electrovalvula = false; 
+  }
+  else if(flanco_ascendente == false && humedad_era < rango_de_humedad_menor){
+    electrovalvula = true;
+  }
+  else{
+    electrovalvula = false;
+  } 
+  return electrovalvula;
+ }
+
+// FUNCION QUE DETERMINA SI SE ESTA EN FLANCO ASCENDENTE O DESENDIENTE
+boolean estado_flanco_ascendente(float humedad_era_antes,float humedad_era){
+  float resta = humedad_era_antes-humedad_era;
+  boolean ascendente;
+  if(resta<=(0.5)){
+    ascendente = true;
+  }else{
+    ascendente = false;
+  } 
+  return ascendente;
+}
+
+//*****PRUEBA DE COMUNICACION*******
+String rangos_de_humedad = "4020";
+int led1=40;
+String rango_humedad_menor = "40";
+String rango_humedad_mayor = "20";
+
+//VOID SETUP  
+void setup(){
+  Serial.begin(115200);
+  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(led1,OUTPUT);
+  digitalWrite(led1, HIGH);
+  pinMode(PinSensor, INPUT); 
+  attachInterrupt(digitalPinToInterrupt(PinSensor),ContarPulsos,RISING);//(Interrupción 0(Pin2),función,Flanco de subida)
+  sensor.begin(); //para sensor de temperatura DS18B20
+  t0=millis();
+  
+  //RELES
+  pinMode(electrovalvula_1,OUTPUT);
+  pinMode(electrovalvula_2,OUTPUT);
+  pinMode(electrovalvula_3,OUTPUT);
+  tiempoOne=millis();
+}
+
+//VOID LOOP
 void loop(){
+// SE RECIBE EL VALOR DEL RANGO DE HUMEDAD DESDE LABVIEW
+if (Serial.available())
+   {
+      rangos_de_humedad = Serial.readStringUntil('\n'); 
+   }
+   if(rangos_de_humedad.length()>=4){ //la variable var1 toma dos espacios de mas aumentando su longitud 2 veces 
+      rango_humedad_mayor = (String)rangos_de_humedad[0]+(String)rangos_de_humedad[1]; 
+      rango_humedad_menor = (String)rangos_de_humedad[2]+(String)rangos_de_humedad[3]; 
 
 
+    }else if(rangos_de_humedad.length()==3){ //la variable var1 toma dos espacios de mas aumentando su longitud 2 veces 
+      rango_humedad_mayor = (String)rangos_de_humedad[0]+(String)rangos_de_humedad[1]; 
+      rango_humedad_menor = (String)rangos_de_humedad[2]; 
+      
+    }else if(rangos_de_humedad.length()<=2){
+      rango_humedad_mayor = (String)rangos_de_humedad[0]; 
+      rango_humedad_menor = (String)rangos_de_humedad[1]; 
+      
+    }
+    
+    if(rango_humedad_mayor=="40" && rango_humedad_menor=="20")
+      {digitalWrite(led1, LOW);}
+      else{digitalWrite(led1, HIGH);}
+    
 
-//TEMPERATURA
+//TEMPERATURA DS18B20
 //tiempo de respuesta:534
   sensor.requestTemperatures();   
-  float temp= sensor.getTempCByIndex(0); 
-  //Serial.println((String)temp);
-//  duracion_de_ciclo();
+  float temperatura_DS18B20= sensor.getTempCByIndex(0); 
 
-  
-//HUMEDAD ATMOSFERICA 
+//HUMEDAD ATMOSFERICA Y TEMPERATURA SHT10 
 /*tiempo de sht1x.readTemperatureC: 411
   tiempo de sht1x.readTemperatureF: 411
   tiempo de sht1x.readHumidity(): 642
 */
-/*  float temp_c;
-  float humedad_atmosferica;
-  humedad_atmosferica = sht10.readHumidity();
-  temp_c = sht10.readTemperatureC();
+/*  
+  float humedad_atmosferica_SHT10 = sht10.readHumidity();
+  float temperatura_SHT10 = sht10.readTemperatureC();
 */  
 
 //HUMEDAD
-  float sensor_humedad_0 = (analogRead(A1)*(-100.0/1023.0))+100.0;
-  float sensor_humedad_1 = (analogRead(A2)*(-100.0/1023.0))+100.0;
-  float sensor_humedad_2 = (analogRead(A3)*(-100.0/1023.0))+100.0;
-  float sensor_humedad_3 = (analogRead(A4)*(-100.0/1023.0))+100.0;
-  float sensor_humedad_4 = (analogRead(A5)*(-100.0/1023.0))+100.0;
-  float sensor_humedad_5 = (analogRead(A6)*(-100.0/1023.0))+100.0;
-  float sensor_humedad_6 = (analogRead(A7)*(-100.0/1023.0))+100.0;
-  float sensor_humedad_7 = (analogRead(A8)*(-100.0/1023.0))+100.0;
-  float sensor_humedad_8 = (analogRead(A9)*(-100.0/1023.0))+100.0;
-  float humedad_era_1 = (sensor_humedad_0+sensor_humedad_1+sensor_humedad_2)/3 ;
-  float humedad_era_2 = (sensor_humedad_3+sensor_humedad_4+sensor_humedad_5)/3 ;
-  float humedad_era_3 = (sensor_humedad_6+sensor_humedad_7+sensor_humedad_8)/3 ;
- // Serial.println((String)temp_c+","+(String)humidity+","+(String)val0+","+(String)val1+","+(String)val2+","+(String)val3+","+(String)val4+","+(String)val5+","+(String)val6+","+(String)val7+","+(String)val8);
-  //duracion_de_ciclo();
-  //1057
+  float sensor_humedad_1 = (analogRead(A1)*(-100.0/1023.0))+100.0;
+  float sensor_humedad_2 = (analogRead(A2)*(-100.0/1023.0))+100.0;
+  float sensor_humedad_3 = (analogRead(A3)*(-100.0/1023.0))+100.0;
+  float sensor_humedad_4 = (analogRead(A4)*(-100.0/1023.0))+100.0;
+  float sensor_humedad_5 = (analogRead(A5)*(-100.0/1023.0))+100.0;
+  float sensor_humedad_6 = (analogRead(A6)*(-100.0/1023.0))+100.0;
+  float sensor_humedad_7 = (analogRead(A7)*(-100.0/1023.0))+100.0;
+  float sensor_humedad_8 = (analogRead(A8)*(-100.0/1023.0))+100.0;
+  float sensor_humedad_9 = (analogRead(A9)*(-100.0/1023.0))+100.0;
+  float humedad_era_1 = (sensor_humedad_1+sensor_humedad_2+sensor_humedad_3)/3 ;
+  float humedad_era_2 = (sensor_humedad_4+sensor_humedad_5+sensor_humedad_6)/3 ;
+  float humedad_era_3 = (sensor_humedad_7+sensor_humedad_8+sensor_humedad_9)/3 ;
 
-  //****CONTROL******
- 
+ //****CONTROL DE ELECTROVALVULAS******
+  unsigned long tiempoactualOne=millis();
+  if((unsigned long)(tiempoactualOne-tiempoanteriorOne)>=intervaloOne){
+    ascendente_electrovalvula_1 = estado_flanco_ascendente(humedad_era_1_antes, humedad_era_1);  
+    ascendente_electrovalvula_2 = estado_flanco_ascendente(humedad_era_2_antes, humedad_era_2);  
+    ascendente_electrovalvula_3 = estado_flanco_ascendente(humedad_era_3_antes, humedad_era_3);  
+  
+    tiempoanteriorOne=millis();
+    //duracion_de_ciclo(); 
+  }
+  
+  //Guardo el valor de la humedad
+  humedad_era_1_antes = humedad_era_1;
+  humedad_era_2_antes = humedad_era_2;
+  humedad_era_3_antes = humedad_era_3; 
+  
+  estado_electrovalvula_1 = estado_electrovalvula(humedad_era_1,ascendente_electrovalvula_1, rango_humedad_mayor.toFloat(), rango_humedad_menor.toFloat());
+  estado_electrovalvula_2 = estado_electrovalvula(humedad_era_2,ascendente_electrovalvula_2, rango_humedad_mayor.toFloat(), rango_humedad_menor.toFloat());
+  estado_electrovalvula_3 = estado_electrovalvula(humedad_era_3,ascendente_electrovalvula_3, rango_humedad_mayor.toFloat(), rango_humedad_menor.toFloat());
+
+  
+  if(estado_electrovalvula_1 == true){
+    digitalWrite(electrovalvula_1,HIGH);
+  }else{
+    digitalWrite(electrovalvula_1,LOW);
+  }
+  
+  if(estado_electrovalvula_2 == true){
+    digitalWrite(electrovalvula_2,HIGH);
+  }else{
+    digitalWrite(electrovalvula_2,LOW);
+  }
+  
+  if(estado_electrovalvula_3 == true){
+    digitalWrite(electrovalvula_3,LOW);
+  }else{
+    digitalWrite(electrovalvula_3,HIGH);
+  }
+
 //SENSOR DE CAUDAL
 
-  float frecuencia=ObtenerFrecuecia(); //obtenemos la frecuencia de los pulsos en Hz
-  float caudal_L_m=frecuencia/factor_conversion; //calculamos el caudal en L/m
-  dt=millis()-t0; //calculamos la variación de tiempo
-  t0=millis();
+  float frecuencia = obtener_frecuecia(); //obtenemos la frecuencia de los pulsos en Hz
+  float caudal_L_m = frecuencia/factor_conversion; //calculamos el caudal en L/m
+  dt = millis()-t0; //calculamos la variación de tiempo
+  t0 = millis();
   volumen=volumen+(caudal_L_m/60)*(dt/1000); // volumen(L)=caudal(L/s)*tiempo(s)
 
 
 //SE IMPRIMEN TODAS LAS FUNCIONES  
   unsigned long tiempoactual1=millis();
   if((unsigned long)(tiempoactual1-tiempoanterior1)>=intervalo1){
+    Serial.print((String)volumen+";");
+    Serial.print((String)caudal_L_m+";");
+    Serial.print((String)temperatura_DS18B20+";");
+    Serial.print((String)200+";");
+    //Serial.print((String)tempeeratura_SHT10+";");
+    //Serial.print((String)humedad_atmosferica_SHT10+";");
+    Serial.print((String)sensor_humedad_1+";");
+    Serial.print((String)sensor_humedad_2+";");
+    Serial.print((String)sensor_humedad_3+";");
+    Serial.print((String)sensor_humedad_4+";");
+    Serial.print((String)sensor_humedad_5+";");
+    Serial.print((String)sensor_humedad_6+";");
+    Serial.print((String)sensor_humedad_7+";");
+    Serial.print((String)sensor_humedad_8+";");
+    Serial.print((String)sensor_humedad_9+";");
+    Serial.print((String)estado_electrovalvula_1+";");
+    Serial.print((String)estado_electrovalvula_2+";");
+    Serial.print((String)estado_electrovalvula_3+";");
+    Serial.print((String)rango_humedad_mayor+";");
+    Serial.println((String)rango_humedad_menor);
+    
+
+    tiempoanterior1=millis();
+    //duracion_de_ciclo(); 
+  }
  
-   tiempoanterior1=millis();
-   Serial.print((String)temp+";");
-   Serial.print((String)volumen+";");
-   Serial.print((String)caudal_L_m+",");
-  // Serial.print((String)temp_c+",");
-   //Serial.print((String)humidity+",");
-   Serial.print((String)sensor_humedad_0+",");
-   Serial.print((String)sensor_humedad_1+",");
-   Serial.print((String)sensor_humedad_2+",");
-   Serial.print((String)sensor_humedad_3+",");
-   Serial.print((String)sensor_humedad_4+",");
-   Serial.print((String)sensor_humedad_5+",");
-   Serial.print((String)sensor_humedad_6+",");
-   Serial.print((String)sensor_humedad_7+",");
-   Serial.println((String)sensor_humedad_8);
-   
-   duracion_de_ciclo(); 
-
-  }
-
-
-  
-//RELES
-if(Serial.available())
-  {
-    var = Serial.read();
-    var1+=var;
-    if(var=='\n')
-    {
-      if(var1[0]=='a')
-      {digitalWrite(led1,LOW);}
-      else{digitalWrite(led1,HIGH);}
-
-      if(var1[1]=='b')
-      {digitalWrite(led2,LOW);}
-      else {digitalWrite(led2,HIGH);}
-
-      if(var1[2]=='c')
-      {digitalWrite(led3,LOW);}
-      else {digitalWrite(led3,HIGH);}
-
-     
-      var1="";
-    }
-  }
 }
