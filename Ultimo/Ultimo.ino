@@ -1,14 +1,14 @@
 //SENSOR DE CAUDAL
-unsigned long intervalo1=20000;
+unsigned long intervalo1=15000;
 unsigned long tiempoanterior1=0;
 
-unsigned long intervaloOne=10000;
-unsigned long tiempoanteriorOne=0;
+unsigned long intervalo_establece_flanco=60000;
+unsigned long tiempo_anterior_para_flanco=0;
 
 long dt=0;
 long t0=0;
 volatile int Pulsos=0; //variable para la cantidad de pulsos recibidos
-int PinSensor = 3;    //Sensor conectado en el pin 2
+int PinSensor = 2;    //Sensor conectado en el pin 3
 float factor_conversion=7.288; //para convertir de frecuencia a caudal
 float volumen=0;
 
@@ -92,7 +92,7 @@ boolean estado_electrovalvula(float humedad_era, boolean flanco_ascendente, floa
 boolean estado_flanco_ascendente(float humedad_era_antes,float humedad_era){
   float resta = humedad_era_antes-humedad_era;
   boolean ascendente;
-  if(resta<=(0.5)){
+  if(resta<=(0)){
     ascendente = true;
   }else{
     ascendente = false;
@@ -167,34 +167,42 @@ if (Serial.available())
 */  
 
 //HUMEDAD
-  float sensor_humedad_1 = (analogRead(A1)*(-100.0/1023.0))+100.0;
-  float sensor_humedad_2 = (analogRead(A2)*(-100.0/1023.0))+100.0;
-  float sensor_humedad_3 = (analogRead(A3)*(-100.0/1023.0))+100.0;
-  float sensor_humedad_4 = (analogRead(A4)*(-100.0/1023.0))+100.0;
-  float sensor_humedad_5 = (analogRead(A5)*(-100.0/1023.0))+100.0;
-  float sensor_humedad_6 = (analogRead(A6)*(-100.0/1023.0))+100.0;
-  float sensor_humedad_7 = (analogRead(A7)*(-100.0/1023.0))+100.0;
-  float sensor_humedad_8 = (analogRead(A8)*(-100.0/1023.0))+100.0;
-  float sensor_humedad_9 = (analogRead(A9)*(-100.0/1023.0))+100.0;
+  float sensor_humedad_1 = (analogRead(A1)*(-100.0/643.0))+159.0;
+  float sensor_humedad_2 = (analogRead(A2)*(-100.0/643.0))+159.0;
+  float sensor_humedad_3 = (analogRead(A3)*(-100.0/643.0))+159.0;
+  float sensor_humedad_4 = (analogRead(A4)*(-100.0/643.0))+159.0;
+  float sensor_humedad_5 = (analogRead(A5)*(-100.0/643.0))+159.0;
+  float sensor_humedad_6 = (analogRead(A6)*(-100.0/643.0))+159.0;
+  float sensor_humedad_7 = (analogRead(A7)*(-100.0/643.0))+159.0;
+  float sensor_humedad_8 = (analogRead(A8)*(-100.0/643.0))+159.0;
+  float sensor_humedad_9 = (analogRead(A9)*(-100.0/643.0))+159.0;
   float humedad_era_1 = (sensor_humedad_1+sensor_humedad_2+sensor_humedad_3)/3 ;
   float humedad_era_2 = (sensor_humedad_4+sensor_humedad_5+sensor_humedad_6)/3 ;
   float humedad_era_3 = (sensor_humedad_7+sensor_humedad_8+sensor_humedad_9)/3 ;
 
+  //humedad_era_1 = sensor_humedad_1;
+//  humedad_era_2 = sensor_humedad_4;
+//  humedad_era_3 = sensor_humedad_7;
+
  //****CONTROL DE ELECTROVALVULAS******
-  unsigned long tiempoactualOne=millis();
-  if((unsigned long)(tiempoactualOne-tiempoanteriorOne)>=intervaloOne){
+  unsigned long tiempo_actual_para_flanco=millis();
+  if((unsigned long)(tiempo_actual_para_flanco-tiempo_anterior_para_flanco)>=intervalo_establece_flanco){
+
+ 
+    
     ascendente_electrovalvula_1 = estado_flanco_ascendente(humedad_era_1_antes, humedad_era_1);  
     ascendente_electrovalvula_2 = estado_flanco_ascendente(humedad_era_2_antes, humedad_era_2);  
     ascendente_electrovalvula_3 = estado_flanco_ascendente(humedad_era_3_antes, humedad_era_3);  
-  
-    tiempoanteriorOne=millis();
+
+    //Guardo el valor de la humedad
+    humedad_era_1_antes = humedad_era_1;
+    humedad_era_2_antes = humedad_era_2;
+    humedad_era_3_antes = humedad_era_3;
+    tiempo_anterior_para_flanco=millis();
     //duracion_de_ciclo(); 
   }
   
-  //Guardo el valor de la humedad
-  humedad_era_1_antes = humedad_era_1;
-  humedad_era_2_antes = humedad_era_2;
-  humedad_era_3_antes = humedad_era_3; 
+
   
   estado_electrovalvula_1 = estado_electrovalvula(humedad_era_1,ascendente_electrovalvula_1, rango_humedad_mayor.toFloat(), rango_humedad_menor.toFloat());
   estado_electrovalvula_2 = estado_electrovalvula(humedad_era_2,ascendente_electrovalvula_2, rango_humedad_mayor.toFloat(), rango_humedad_menor.toFloat());
@@ -249,6 +257,7 @@ if (Serial.available())
     Serial.print((String)estado_electrovalvula_1+";");
     Serial.print((String)estado_electrovalvula_2+";");
     Serial.print((String)estado_electrovalvula_3+";");
+   // Serial.print((String)ascendente_electrovalvula_3);
     Serial.print((String)rango_humedad_mayor+";");
     Serial.println((String)rango_humedad_menor);
     
