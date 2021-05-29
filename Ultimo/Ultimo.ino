@@ -1,14 +1,23 @@
+//MODULO DE RELOJ
+#include <ThreeWire.h>  
+#include <RtcDS1302.h>
+
+ThreeWire myWire(20,21,2); // IO, SCLK, CE
+RtcDS1302<ThreeWire> Rtc(myWire);
 //SENSOR DE CAUDAL
-unsigned long intervalo1=15000;
+unsigned long intervalo1=20000;
 unsigned long tiempoanterior1=0;
 
 unsigned long intervalo_establece_flanco=60000;
 unsigned long tiempo_anterior_para_flanco=0;
 
+unsigned long intervalo_rangos_de_humedad=120000;
+unsigned long tiempo_anterior_para_rango=0;
+int num=0;
 long dt=0;
 long t0=0;
 volatile int Pulsos=0; //variable para la cantidad de pulsos recibidos
-int PinSensor = 2;    //Sensor conectado en el pin 3
+int PinSensor = 3;    //Sensor conectado en el pin 3
 float factor_conversion=7.288; //para convertir de frecuencia a caudal
 float volumen=0;
 
@@ -101,10 +110,33 @@ boolean estado_flanco_ascendente(float humedad_era_antes,float humedad_era){
 }
 
 //*****PRUEBA DE COMUNICACION*******
-String rangos_de_humedad = "4020";
+String rangos_de_humedad = "7060";
+
 int led1=40;
-String rango_humedad_menor = "40";
-String rango_humedad_mayor = "20";
+String rango_humedad_menor = "90";
+String rango_humedad_mayor = "50";
+//
+float rango_de_humedad(float humedad_era, float humedad_mayor_inicial, float humedad_menor_inicial){
+
+    float valor_final = (-0.014*(humedad_era*humedad_era))+(0.33*humedad_era)+(98.091);
+    float resta = valor_final - humedad_mayor_inicial;
+    float rango_humedad_mayor = humedad_mayor_inicial - resta;
+    //float rango_humedad_menor = humedad_menor_inicial - resta;
+  
+    //rangos[0] = rango_humedad_mayor;
+    //rangos[1] = rango_humedad_menor;
+    return rango_humedad_mayor;
+ }
+
+//
+  float rango_humedad_mayor_era_1;
+  float rango_humedad_menor_era_1; 
+
+  float rango_humedad_mayor_era_2;
+  float rango_humedad_menor_era_2; 
+
+  float rango_humedad_mayor_era_3;
+  float rango_humedad_menor_era_3; 
 
 //VOID SETUP  
 void setup(){
@@ -122,6 +154,9 @@ void setup(){
   pinMode(electrovalvula_2,OUTPUT);
   pinMode(electrovalvula_3,OUTPUT);
   tiempoOne=millis();
+  //MODULO DE RELOJ
+  //Rtc.Begin();
+  //RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__);
 }
 
 //VOID LOOP
@@ -146,10 +181,10 @@ if (Serial.available())
       
     }
     
-    if(rango_humedad_mayor=="40" && rango_humedad_menor=="20")
+   /* if(rango_humedad_mayor=="40" && rango_humedad_menor=="20")
       {digitalWrite(led1, LOW);}
       else{digitalWrite(led1, HIGH);}
-    
+    */
 
 //TEMPERATURA DS18B20
 //tiempo de respuesta:534
@@ -201,12 +236,91 @@ if (Serial.available())
     tiempo_anterior_para_flanco=millis();
     //duracion_de_ciclo(); 
   }
-  
+  /*int cont = 0;
+  String rango_humedad_mayor_inicial;
+  String rango_humedad_menor_inicial;
+  //Modifico el rango de humedad a mantener de acuerdo a la funcion de correcion
+  if (cont<1){
+    rango_humedad_mayor_inicial = rango_humedad_mayor;
+    rango_humedad_menor_inicial = rango_humedad_menor;
+    cont += 1;
+  }*/
+  //
+
 
   
-  estado_electrovalvula_1 = estado_electrovalvula(humedad_era_1,ascendente_electrovalvula_1, rango_humedad_mayor.toFloat(), rango_humedad_menor.toFloat());
-  estado_electrovalvula_2 = estado_electrovalvula(humedad_era_2,ascendente_electrovalvula_2, rango_humedad_mayor.toFloat(), rango_humedad_menor.toFloat());
-  estado_electrovalvula_3 = estado_electrovalvula(humedad_era_3,ascendente_electrovalvula_3, rango_humedad_mayor.toFloat(), rango_humedad_menor.toFloat());
+  if(num < 3){
+    rango_humedad_mayor_era_1 = rango_humedad_mayor.toFloat();
+    rango_humedad_menor_era_1 = rango_humedad_menor.toFloat();
+
+    rango_humedad_mayor_era_2 = rango_humedad_mayor.toFloat();
+    rango_humedad_menor_era_2 = rango_humedad_menor.toFloat(); 
+
+    rango_humedad_mayor_era_3 = rango_humedad_mayor.toFloat();
+    rango_humedad_menor_era_3 = rango_humedad_menor.toFloat(); 
+  }
+  num = num + 1;
+  unsigned long tiempo_actual_para_rango=millis();
+  if((unsigned long)(tiempo_actual_para_rango-tiempo_anterior_para_rango)>=intervalo_rangos_de_humedad){
+ 
+  // En la era 1
+  float rangos_era_1[2];
+  rangos_era_1[0]=rango_humedad_mayor.toFloat();
+  rangos_era_1[1]=rango_humedad_menor.toFloat();
+  rango_humedad_mayor_era_1 = rango_humedad_mayor.toFloat();
+  rango_humedad_menor_era_1 = rango_humedad_menor.toFloat(); 
+ 
+  if (humedad_era_1 < rango_humedad_mayor.toFloat()){
+  rango_humedad_mayor_era_1 = rango_de_humedad(humedad_era_1, rango_humedad_mayor.toFloat(), rango_humedad_menor.toFloat());
+  }
+  if (humedad_era_1 > rango_humedad_menor.toFloat()){
+  rango_humedad_mayor_era_1 = rango_humedad_mayor_era_1 - 9;
+  //rango_humedad_mayor_era_1 = rangos_era_1[0];
+  //rango_humedad_menor_era_1 = rangos_era_1[1]; 
+  
+  }
+  
+    // En la era 2
+  float rangos_era_2[2];
+  rangos_era_2[0]=rango_humedad_mayor.toFloat();
+  rangos_era_2[1]=rango_humedad_menor.toFloat();
+  rango_humedad_mayor_era_2 = rango_humedad_mayor.toFloat();
+  rango_humedad_menor_era_2 = rango_humedad_menor.toFloat(); 
+  
+  if (humedad_era_2 < rango_humedad_mayor.toFloat()){
+  rango_humedad_mayor_era_2 = rango_de_humedad(humedad_era_2, rango_humedad_mayor.toFloat(), rango_humedad_menor.toFloat());
+  }
+  if (humedad_era_2 > rango_humedad_menor.toFloat()){
+  rango_humedad_mayor_era_2 = rango_humedad_mayor_era_2 - 9;
+  //rango_humedad_mayor_era_2 = rangos_era_2[0];
+  //rango_humedad_menor_era_2 = rangos_era_2[1]; 
+  }
+    // En la era 3
+  float rangos_era_3[2];
+  rangos_era_3[0]=rango_humedad_mayor.toFloat();
+  rangos_era_3[1]=rango_humedad_menor.toFloat();
+  rango_humedad_mayor_era_3 = rango_humedad_mayor.toFloat();
+  rango_humedad_menor_era_3 = rango_humedad_menor.toFloat(); 
+  
+  if (humedad_era_3 < rango_humedad_mayor.toFloat()){
+  rango_humedad_mayor_era_3 = rango_de_humedad(humedad_era_3, rango_humedad_mayor.toFloat(), rango_humedad_menor.toFloat());
+  }
+  if (humedad_era_3 > rango_humedad_menor.toFloat()){
+  rango_humedad_mayor_era_3 = rango_humedad_mayor_era_3 - 9;
+  //rango_humedad_mayor_era_3 = rangos_era_3[0];
+  //rango_humedad_menor_era_3 = rangos_era_3[1];
+  }
+  tiempo_anterior_para_rango=millis(); 
+  
+  }
+
+  /*rango_humedad_menor_era_1 = rango_humedad_menor_era_1 - 9;
+  rango_humedad_menor_era_2 = rango_humedad_menor_era_2 - 9;
+  rango_humedad_menor_era_3 = rango_humedad_menor_era_3 - 9;
+  */
+  estado_electrovalvula_1 = estado_electrovalvula(humedad_era_1,ascendente_electrovalvula_1, rango_humedad_mayor_era_1, rango_humedad_menor_era_1);
+  estado_electrovalvula_2 = estado_electrovalvula(humedad_era_2,ascendente_electrovalvula_2, rango_humedad_mayor_era_2, rango_humedad_menor_era_2);
+  estado_electrovalvula_3 = estado_electrovalvula(humedad_era_3,ascendente_electrovalvula_3, rango_humedad_mayor_era_3, rango_humedad_menor_era_3);
 
   
   if(estado_electrovalvula_1 == true){
@@ -234,6 +348,9 @@ if (Serial.available())
   dt = millis()-t0; //calculamos la variación de tiempo
   t0 = millis();
   volumen=volumen+(caudal_L_m/60)*(dt/1000); // volumen(L)=caudal(L/s)*tiempo(s)
+//MODULO DE RELOJ
+RtcDateTime now = Rtc.GetDateTime();
+
 
 
 //SE IMPRIMEN TODAS LAS FUNCIONES  
@@ -257,9 +374,12 @@ if (Serial.available())
     Serial.print((String)estado_electrovalvula_1+";");
     Serial.print((String)estado_electrovalvula_2+";");
     Serial.print((String)estado_electrovalvula_3+";");
-   // Serial.print((String)ascendente_electrovalvula_3);
-    Serial.print((String)rango_humedad_mayor+";");
-    Serial.println((String)rango_humedad_menor);
+    Serial.print((String)rango_humedad_mayor_era_1+";");
+    Serial.print((String)rango_humedad_menor_era_1+";");
+    Serial.print((String)now.Year()+";");
+    Serial.print((String)now.Month()+";");
+    Serial.print((String)now.Day()+";");
+    Serial.println((String)now.Hour());
     
 
     tiempoanterior1=millis();
